@@ -3,6 +3,7 @@ export type ITunesSearchResult = {
   trackName?: string
   artistName?: string
   previewUrl?: string
+  artworkUrl100?: string
   kind?: string
 }
 
@@ -19,6 +20,7 @@ export type PreviewLookupInput = {
 export type PreviewLookupResult = {
   previewUrl: string
   display: string
+  artworkUrl?: string
 }
 
 function scoreResult(input: PreviewLookupInput, r: ITunesSearchResult): number {
@@ -71,5 +73,6 @@ export async function lookupPreviewUrl(
   return {
     previewUrl: best.previewUrl,
     display: `${best.trackName ?? input.title} — ${best.artistName ?? input.artist}`,
+    artworkUrl: best.artworkUrl100,
   }
 }

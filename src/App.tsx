@@ -10,6 +10,7 @@ import { recognizeSongStub } from './services/recognition'
 import { Button } from './components/ui/Button'
 import { Card } from './components/ui/Card'
 import { Spinner } from './components/ui/Spinner'
+import { ProgressBar } from './components/ui/ProgressBar'
 
 type AppStage = 'idle' | 'listening' | 'fetchingInfo' | 'ready' | 'error'
 
@@ -20,6 +21,7 @@ type Song = {
   artist: string
   source: SongSource
   previewUrl?: string
+  artworkUrl?: string
 }
 
 type SongInfo = {
@@ -148,6 +150,7 @@ function App() {
     'idle' | 'lookingUp' | 'found' | 'notFound' | 'error'
   >('idle')
   const [analysisSeconds, setAnalysisSeconds] = useState(18)
+  const [analysisProgress, setAnalysisProgress] = useState(0)
 
   const [recognitionStatus, setRecognitionStatus] = useState<'idle' | 'calling' | 'done' | 'error'>(
     'idle',
@@ -158,10 +161,18 @@ function App() {
     if (state.stage !== 'fetchingInfo' || !state.song) return
     let cancelled = false
 
+    queueMicrotask(() => setAnalysisProgress(0))
+    const startedAt = Date.now()
+    const progressTimer = window.setInterval(() => {
+      const elapsed = (Date.now() - startedAt) / 1000
+      setAnalysisProgress(Math.max(0, Math.min(0.95, elapsed / analysisSeconds)))
+    }, 120)
+
     dispatch({ type: 'INFO_FETCH_START' })
     fakeFetchSongInfo(state.song, { secondsToAnalyze: analysisSeconds })
       .then((songInfo) => {
         if (cancelled) return
+        setAnalysisProgress(1)
         dispatch({ type: 'INFO_FETCH_SUCCESS', songInfo })
       })
       .catch((err: unknown) => {
@@ -172,6 +183,7 @@ function App() {
 
     return () => {
       cancelled = true
+      window.clearInterval(progressTimer)
     }
   }, [state.stage, state.song, analysisSeconds])
 
@@ -268,19 +280,28 @@ function App() {
                       onClick={async () => {
                         // Best-effort: fetch a preview URL so we can do real audio key detection.
                         let previewUrl: string | undefined
+                        let artworkUrl: string | undefined
                         try {
                           setPreviewStatus('lookingUp')
                           const preview = await lookupPreviewUrl({ title: r.title, artist: r.artist })
                           previewUrl = preview?.previewUrl
+                          artworkUrl = preview?.artworkUrl
                           setPreviewStatus(previewUrl ? 'found' : 'notFound')
                         } catch {
                           previewUrl = undefined
+                          artworkUrl = undefined
                           setPreviewStatus('error')
                         }
 
                         dispatch({
                           type: 'SONG_SELECTED',
-                          song: { title: r.title, artist: r.artist, source: 'manual', previewUrl },
+                          song: {
+                            title: r.title,
+                            artist: r.artist,
+                            source: 'manual',
+                            previewUrl,
+                            artworkUrl,
+                          },
                         })
                       }}
                     >
@@ -354,23 +375,39 @@ function App() {
         <div className="stack">
           <Card title="Analyzing" subtitle="Finding key from the preview clip">
             {state.song && (
-              <p style={{ marginTop: 0 }}>
-                <strong>{state.song.title}</strong> — {state.song.artist}
-              </p>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                {state.song.artworkUrl && (
+                  <img
+                    src={state.song.artworkUrl}
+                    alt=""
+                    width={56}
+                    height={56}
+                    style={{ borderRadius: 12, flex: '0 0 auto' }}
+                  />
+                )}
+                <div>
+                  <div style={{ fontWeight: 800 }}>{state.song.title}</div>
+                  <div className="hint">{state.song.artist}</div>
+                </div>
+              </div>
             )}
 
             <div className="row" style={{ marginTop: 8 }}>
-              <Spinner
-                label={
-                  state.song?.previewUrl
-                    ? `Analyzing preview (~${analysisSeconds}s)…`
-                    : previewStatus === 'lookingUp'
-                      ? 'Looking up a preview clip…'
+              {state.song?.previewUrl ? (
+                <div style={{ width: '100%' }}>
+                  <ProgressBar value={analysisProgress} label={`Analyzing preview (~${analysisSeconds}s)`} />
+                </div>
+              ) : (
+                <Spinner
+                  label={
+                    previewStatus === 'lookingUp'
+                      ? 'Step 1/2: Looking up a preview clip…'
                       : previewStatus === 'notFound'
                         ? 'No preview clip found (key detection may be unavailable)'
                         : 'Working…'
-                }
-              />
+                  }
+                />
+              )}
             </div>
           </Card>
         </div>
@@ -379,9 +416,21 @@ function App() {
       {state.stage === 'ready' && state.song && state.songInfo && (
         <div className="stack">
           <Card title="Song info" subtitle="Improv-friendly summary">
-            <p style={{ marginTop: 0 }}>
-              <strong>{state.song.title}</strong> — {state.song.artist}
-            </p>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              {state.song.artworkUrl && (
+                <img
+                  src={state.song.artworkUrl}
+                  alt=""
+                  width={56}
+                  height={56}
+                  style={{ borderRadius: 12, flex: '0 0 auto' }}
+                />
+              )}
+              <div>
+                <div style={{ fontWeight: 800 }}>{state.song.title}</div>
+                <div className="hint">{state.song.artist}</div>
+              </div>
+            </div>
 
             <div style={{ display: 'grid', gap: 10 }}>
               <div>

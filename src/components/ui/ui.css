@@ -103,6 +103,31 @@
   font-size: 14px;
 }
 
+.ui-progress {
+  width: 100%;
+}
+
+.ui-progress__label {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.ui-progress__track {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.ui-progress__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary), color-mix(in oklab, var(--primary) 35%, white));
+  transition: width 0.2s ease;
+}
+
 @keyframes ui-pulse {
   0%,
   100% {
