@@ -17,4 +17,10 @@ describe('musicbrainz query building', () => {
   test('does not try to split very short inputs', () => {
     expect(__private__.buildMusicBrainzQuery('My way Sinatra')).toBe('My way Sinatra')
   })
+
+  test('handles single-word artists', () => {
+    expect(__private__.buildMusicBrainzQuery('Advice Cavetown')).toBe(
+      'recording:"Advice" AND artist:"Cavetown"',
+    )
+  })
 })

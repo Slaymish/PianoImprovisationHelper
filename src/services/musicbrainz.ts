@@ -25,11 +25,27 @@ function guessTitleArtist(raw: string): { title: string; artist: string } | null
   // This isn't perfect, but it helps a lot for common "title artist" searches.
   const s = normalizeSpaces(raw)
   const parts = s.split(' ').filter(Boolean)
-  if (parts.length < 4) return null
+  if (parts.length < 2) return null
 
   const titleStopWords = new Set(['a', 'an', 'and', 'at', 'for', 'from', 'in', 'of', 'on', 'the', 'to', 'with'])
   const looksTitleWord = (w: string) => titleStopWords.has(w.toLowerCase())
   const looksNameWord = (w: string) => /^[A-Z][\p{L}'’-]*$/u.test(w)
+  const looksArtistToken = (w: string) => {
+    // Allow common artist tokens like "Cavetown" that are capitalized but not
+    // necessarily "First Last" shaped.
+    if (!w) return false
+    if (looksTitleWord(w)) return false
+    if (looksNameWord(w)) return true
+    return /^[A-Z][A-Za-z0-9'’._-]{2,}$/u.test(w)
+  }
+
+  // Common: "<title> <Artist>" where artist is a single token (e.g. Cavetown).
+  if (parts.length === 2 && looksArtistToken(parts[1])) {
+    return { title: parts[0], artist: parts[1] }
+  }
+
+  // From here on, require more words so we don't over-eagerly split short queries.
+  if (parts.length < 4) return null
 
   // Common case: "<title words> <First> <Last>".
   // If the last two tokens look like names, prefer treating them as the artist.
@@ -39,6 +55,18 @@ function guessTitleArtist(raw: string): { title: string; artist: string } | null
     if (looksNameWord(a1) && looksNameWord(a2) && !looksTitleWord(a1) && !looksTitleWord(a2)) {
       const title = parts.slice(0, -2).join(' ')
       const artist = `${a1} ${a2}`
+      if (title.length >= 2) return { title, artist }
+    }
+  }
+
+  // Also handle single-word artists like "Cavetown"/"Madonna"/"Muse".
+  // We only attempt this when the last token looks like a proper noun to avoid
+  // making queries worse for generic multi-word text.
+  if (parts.length >= 3) {
+    const last = parts[parts.length - 1]
+    if (looksArtistToken(last)) {
+      const title = parts.slice(0, -1).join(' ')
+      const artist = last
       if (title.length >= 2) return { title, artist }
     }
   }
