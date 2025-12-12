@@ -5,7 +5,7 @@ import { useDebouncedValue } from './hooks/useDebouncedValue'
 import { searchTracks, type TrackSearchResult } from './services/musicbrainz'
 import { detectKeyFromAudioUrlWithCandidates, type KeyCandidate } from './services/keyDetection'
 import { lookupPreviewUrl } from './services/itunes'
-import { recognizeSongStub } from './services/recognition'
+import { recognizeSong } from './services/recognition'
 
 import { Button } from './components/ui/Button'
 import { Card } from './components/ui/Card'
@@ -93,8 +93,8 @@ function candidateLabel(c: KeyCandidate): string {
 }
 
 async function fakeFetchSongInfo(song: Song, opts: SongInfoOpts): Promise<SongInfo> {
-  // MVP: attempt to detect key from a CORS-enabled preview URL.
-  // If unavailable, we still return info but with keySignature null.
+  // Attempt to detect key from a CORS-enabled preview URL.
+  // If we can't fetch one, we still return info but with keySignature null.
   let keySignature: SongInfo['keySignature'] = null
 
   if (song.previewUrl) {
@@ -118,7 +118,7 @@ async function fakeFetchSongInfo(song: Song, opts: SongInfoOpts): Promise<SongIn
         }
       }
     } catch {
-      // Swallow for MVP; we'll surface a warning later.
+      // If analysis fails, just treat the key as unknown.
       keySignature = null
     }
   }
@@ -232,7 +232,7 @@ function App() {
                 Listen for song
               </Button>
               <span className="hint">
-                Tip: recognition is stubbed — search works best right now.
+                Mic recognition isn’t plugged in yet — search works best for now.
               </span>
             </div>
 
@@ -278,7 +278,7 @@ function App() {
                       className="listItem"
                       role="option"
                       onClick={async () => {
-                        // Best-effort: fetch a preview URL so we can do real audio key detection.
+                        // Try to fetch a preview URL so we can do real audio key detection.
                         let previewUrl: string | undefined
                         let artworkUrl: string | undefined
                         try {
@@ -318,7 +318,7 @@ function App() {
 
       {state.stage === 'listening' && (
         <div className="stack">
-          <Card title="Listening" subtitle="Backend wiring is ready — mic capture comes next">
+          <Card title="Listening" subtitle="This is just the wiring for now">
             <div className="row">
               <Button variant="ghost" type="button" onClick={() => dispatch({ type: 'LISTEN_STOP' })}>
                 Stop
@@ -331,7 +331,7 @@ function App() {
                   setRecognitionStatus('calling')
                   setRecognitionMessage(null)
                   try {
-                    const r = await recognizeSongStub()
+                    const r = await recognizeSong()
                     setRecognitionStatus('done')
                     setRecognitionMessage(r.message)
                   } catch (err: unknown) {
@@ -341,7 +341,7 @@ function App() {
                   }
                 }}
               >
-                Call stub
+                Test recognition call
               </Button>
 
               <Button
@@ -452,14 +452,14 @@ function App() {
 
               <div>
                 <div className="label">Time signature</div>
-                <div style={{ marginTop: 4 }}>{state.songInfo.timeSignature ?? 'Unknown (MVP)'}</div>
+                <div style={{ marginTop: 4 }}>{state.songInfo.timeSignature ?? 'Unknown'}</div>
               </div>
 
               <div>
                 <div className="label">Chord suggestion</div>
                 <div style={{ marginTop: 4 }}>{state.songInfo.chords.join(' → ')}</div>
                 <div className="hint" style={{ marginTop: 4 }}>
-                  (Next: diatonic chords from detected key)
+                  (Diatonic chords from the detected key are next.)
                 </div>
               </div>
             </div>

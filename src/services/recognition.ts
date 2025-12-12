@@ -10,7 +10,7 @@ export type RecognitionResult = {
   matches: RecognitionMatch[]
 }
 
-export async function recognizeSongStub(signal?: AbortSignal): Promise<RecognitionResult> {
+export async function recognizeSong(signal?: AbortSignal): Promise<RecognitionResult> {
   const res = await fetch('/.netlify/functions/recognize', { signal })
   if (!res.ok) throw new Error(`Recognition request failed (${res.status})`)
   return (await res.json()) as RecognitionResult

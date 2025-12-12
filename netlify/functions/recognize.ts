@@ -11,13 +11,12 @@ type RecognizeResponse = {
 }
 
 export const handler: Handler = async () => {
-  // Stub endpoint.
-  // Later: accept an audio snippet (multipart/form-data or base64), call a recognition provider,
-  // and return best matches.
+  // Placeholder endpoint.
+  // Later: accept an audio snippet, call a recognition provider, and return best matches.
   const body: RecognizeResponse = {
     ok: true,
     message:
-      'Recognition stub. This is where we will call a real music recognition provider from Netlify Functions.',
+      'Recognition isn’t implemented yet. This endpoint will eventually call a music recognition provider.',
     matches: [],
   }
 

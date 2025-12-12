@@ -24,6 +24,13 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Prevent padding/borders from pushing elements beyond their container width. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 a {
   font-weight: 500;
   color: #646cff;
@@ -50,6 +57,7 @@ button {
 
 input {
   font-family: inherit;
+  min-width: 0;
 }
 
 ::selection {
