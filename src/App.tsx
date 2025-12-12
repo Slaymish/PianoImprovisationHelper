@@ -7,6 +7,10 @@ import { detectKeyFromAudioUrlWithCandidates, type KeyCandidate } from './servic
 import { lookupPreviewUrl } from './services/itunes'
 import { recognizeSongStub } from './services/recognition'
 
+import { Button } from './components/ui/Button'
+import { Card } from './components/ui/Card'
+import { Spinner } from './components/ui/Spinner'
+
 type AppStage = 'idle' | 'listening' | 'fetchingInfo' | 'ready' | 'error'
 
 type SongSource = 'manual' | 'recognition'
@@ -195,222 +199,264 @@ function App() {
   }, [debouncedQuery, state.stage])
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: 16 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0, fontSize: 22 }}>Piano Improvisation Helper</h1>
+    <div className="app">
+      <header className="app__header">
+        <div className="app__titleWrap">
+          <h1 className="app__title">Piano Improvisation Helper</h1>
+          <p className="app__subtitle">Find a song → auto-detect key → get improv hints</p>
+        </div>
         {state.stage !== 'idle' && (
-          <button type="button" onClick={() => dispatch({ type: 'RESET' })}>
+          <Button variant="ghost" type="button" onClick={() => dispatch({ type: 'RESET' })}>
             Back
-          </button>
+          </Button>
         )}
       </header>
 
       {state.stage === 'idle' && (
-        <section style={{ marginTop: 16 }}>
-          <p style={{ marginTop: 0 }}>
-            Find a song, then we’ll show handy improv info (key, time signature, chords).
-          </p>
-
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => dispatch({ type: 'LISTEN_START' })}>
-              Listen for Song
-            </button>
-          </div>
-
-          <div style={{ marginTop: 16 }}>
-            <label style={{ display: 'block', fontWeight: 600 }} htmlFor="songSearch">
-              Search
-            </label>
-            <input
-              id="songSearch"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Type a song title and/or artist…"
-              style={{ width: '100%', padding: 10, marginTop: 8 }}
-            />
-
-            <div style={{ marginTop: 10, fontSize: 14, opacity: 0.85 }}>
-              {displayedIsSearching
-                ? 'Searching…'
-                : displayedSearchError
-                  ? `Search error: ${displayedSearchError}`
-                  : null}
+        <div className="stack">
+          <Card title="Find a song" subtitle="Search by title and artist (MusicBrainz)">
+            <div className="row">
+              <Button variant="primary" type="button" onClick={() => dispatch({ type: 'LISTEN_START' })}>
+                Listen for song
+              </Button>
+              <span className="hint">
+                Tip: recognition is stubbed — search works best right now.
+              </span>
             </div>
 
-            {displayedResults.length > 0 && (
-              <div style={{ marginTop: 10, border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8 }}>
-                {displayedResults.map((r: TrackSearchResult) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    style={{
-                      width: '100%',
-                      textAlign: 'left',
-                      padding: 12,
-                      border: 'none',
-                      background: 'transparent',
-                      cursor: 'pointer',
-                    }}
-                    onClick={async () => {
-                      // Best-effort: fetch a preview URL so we can do real audio key detection.
-                      let previewUrl: string | undefined
-                      try {
-                        setPreviewStatus('lookingUp')
-                        const preview = await lookupPreviewUrl({ title: r.title, artist: r.artist })
-                        previewUrl = preview?.previewUrl
-                        setPreviewStatus(previewUrl ? 'found' : 'notFound')
-                      } catch {
-                        previewUrl = undefined
-                        setPreviewStatus('error')
-                      }
+            <div className="field" style={{ marginTop: 12 }} aria-busy={displayedIsSearching}>
+              <label className="label" htmlFor="songSearch">
+                Search
+              </label>
+              <input
+                className="input"
+                id="songSearch"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Type a song title and/or artist…"
+                autoComplete="off"
+              />
 
-                      dispatch({
-                        type: 'SONG_SELECTED',
-                        song: { title: r.title, artist: r.artist, source: 'manual', previewUrl },
-                      })
-                    }}
-                  >
-                    <div style={{ fontWeight: 600 }}>{r.title}</div>
-                    <div style={{ opacity: 0.8, fontSize: 13 }}>{r.artist}</div>
-                  </button>
-                ))}
+              <div className="hint">
+                {displayedIsSearching ? (
+                  <Spinner label="Searching…" />
+                ) : displayedSearchError ? (
+                  `Search error: ${displayedSearchError}`
+                ) : previewStatus === 'lookingUp' ? (
+                  <Spinner label="Looking up preview clip…" />
+                ) : previewStatus === 'notFound' ? (
+                  'No preview clip found for the last selection — key detection may not work for that track.'
+                ) : previewStatus === 'error' ? (
+                  'Preview lookup failed — you can still try another track.'
+                ) : (
+                  ' '
+                )}
               </div>
-            )}
-          </div>
-        </section>
+
+              {trimmedQuery && !displayedIsSearching && !displayedSearchError && displayedResults.length === 0 && (
+                <div className="hint">No results yet. Try adding the artist name.</div>
+              )}
+
+              {displayedResults.length > 0 && (
+                <div className="list" role="listbox" aria-label="Search results">
+                  {displayedResults.map((r: TrackSearchResult) => (
+                    <button
+                      key={r.id}
+                      type="button"
+                      className="listItem"
+                      role="option"
+                      onClick={async () => {
+                        // Best-effort: fetch a preview URL so we can do real audio key detection.
+                        let previewUrl: string | undefined
+                        try {
+                          setPreviewStatus('lookingUp')
+                          const preview = await lookupPreviewUrl({ title: r.title, artist: r.artist })
+                          previewUrl = preview?.previewUrl
+                          setPreviewStatus(previewUrl ? 'found' : 'notFound')
+                        } catch {
+                          previewUrl = undefined
+                          setPreviewStatus('error')
+                        }
+
+                        dispatch({
+                          type: 'SONG_SELECTED',
+                          song: { title: r.title, artist: r.artist, source: 'manual', previewUrl },
+                        })
+                      }}
+                    >
+                      <div className="listItem__title">{r.title}</div>
+                      <div className="listItem__subtitle">{r.artist}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
       )}
 
       {state.stage === 'listening' && (
-        <section style={{ marginTop: 16 }}>
-          <h2 style={{ fontSize: 18 }}>Listening…</h2>
-          <p>
-            This is wired to a Netlify Function stub now. Next we’ll add mic capture and send audio.
-          </p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button type="button" onClick={() => dispatch({ type: 'LISTEN_STOP' })}>
-              Stop
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                setRecognitionStatus('calling')
-                setRecognitionMessage(null)
-                try {
-                  const r = await recognizeSongStub()
-                  setRecognitionStatus('done')
-                  setRecognitionMessage(r.message)
-                } catch (err: unknown) {
-                  const message = err instanceof Error ? err.message : 'Unknown error'
-                  setRecognitionStatus('error')
-                  setRecognitionMessage(message)
-                }
-              }}
-            >
-              Call recognition stub
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                dispatch({
-                  type: 'SONG_SELECTED',
-                  song: { title: 'Recognized Song', artist: 'Recognized Artist', source: 'recognition' },
-                })
-              }
-            >
-              Simulate Found Song
-            </button>
-          </div>
+        <div className="stack">
+          <Card title="Listening" subtitle="Backend wiring is ready — mic capture comes next">
+            <div className="row">
+              <Button variant="ghost" type="button" onClick={() => dispatch({ type: 'LISTEN_STOP' })}>
+                Stop
+              </Button>
 
-          <div style={{ marginTop: 12, fontSize: 14, opacity: 0.85 }}>
-            {recognitionStatus === 'calling'
-              ? 'Calling recognition…'
-              : recognitionMessage
-                ? recognitionMessage
-                : null}
-          </div>
-        </section>
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={async () => {
+                  setRecognitionStatus('calling')
+                  setRecognitionMessage(null)
+                  try {
+                    const r = await recognizeSongStub()
+                    setRecognitionStatus('done')
+                    setRecognitionMessage(r.message)
+                  } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : 'Unknown error'
+                    setRecognitionStatus('error')
+                    setRecognitionMessage(message)
+                  }
+                }}
+              >
+                Call stub
+              </Button>
+
+              <Button
+                variant="primary"
+                type="button"
+                onClick={() =>
+                  dispatch({
+                    type: 'SONG_SELECTED',
+                    song: { title: 'Recognized Song', artist: 'Recognized Artist', source: 'recognition' },
+                  })
+                }
+              >
+                Simulate match
+              </Button>
+            </div>
+
+            <div className="hint" style={{ marginTop: 10 }}>
+              {recognitionStatus === 'calling' ? (
+                <Spinner label="Calling recognition…" />
+              ) : recognitionMessage ? (
+                recognitionMessage
+              ) : (
+                ' '
+              )}
+            </div>
+          </Card>
+        </div>
       )}
 
       {state.stage === 'fetchingInfo' && (
-        <section style={{ marginTop: 16 }}>
-          <h2 style={{ fontSize: 18 }}>Searching for Song Info…</h2>
-          {state.song && (
-            <p>
-              <strong>{state.song.title}</strong> — {state.song.artist}
-            </p>
-          )}
-          <p style={{ opacity: 0.8 }}>
-            {state.song?.previewUrl
-              ? `Analyzing preview audio (~${analysisSeconds}s)…`
-              : previewStatus === 'lookingUp'
-                ? 'Looking up a preview clip…'
-                : previewStatus === 'notFound'
-                  ? 'No preview clip found. Key detection may be unavailable.'
-                  : 'Getting key / time signature / chord suggestions…'}
-          </p>
-        </section>
+        <div className="stack">
+          <Card title="Analyzing" subtitle="Finding key from the preview clip">
+            {state.song && (
+              <p style={{ marginTop: 0 }}>
+                <strong>{state.song.title}</strong> — {state.song.artist}
+              </p>
+            )}
+
+            <div className="row" style={{ marginTop: 8 }}>
+              <Spinner
+                label={
+                  state.song?.previewUrl
+                    ? `Analyzing preview (~${analysisSeconds}s)…`
+                    : previewStatus === 'lookingUp'
+                      ? 'Looking up a preview clip…'
+                      : previewStatus === 'notFound'
+                        ? 'No preview clip found (key detection may be unavailable)'
+                        : 'Working…'
+                }
+              />
+            </div>
+          </Card>
+        </div>
       )}
 
       {state.stage === 'ready' && state.song && state.songInfo && (
-        <section style={{ marginTop: 16 }}>
-          <h2 style={{ fontSize: 18 }}>Song Info</h2>
-          <p>
-            <strong>{state.song.title}</strong> — {state.song.artist}
-          </p>
-          <ul>
-            <li>
-              Key signature:{' '}
-              {state.songInfo.keySignature
-                ? `${state.songInfo.keySignature.name} (confidence ${Math.round(
-                    state.songInfo.keySignature.confidence * 100,
-                  )}%)`
-                : 'Unknown (need preview URL or fallback)'}
-            </li>
-            {state.songInfo.keySignature?.candidates && state.songInfo.keySignature.candidates.length > 1 && (
-              <li style={{ opacity: 0.9 }}>
-                Alternate guess: {state.songInfo.keySignature.candidates[1].name}
-              </li>
-            )}
-            <li>Time signature: {state.songInfo.timeSignature ?? 'Unknown (MVP)'}</li>
-            <li>Chords: {state.songInfo.chords.join(' → ')}</li>
-          </ul>
+        <div className="stack">
+          <Card title="Song info" subtitle="Improv-friendly summary">
+            <p style={{ marginTop: 0 }}>
+              <strong>{state.song.title}</strong> — {state.song.artist}
+            </p>
 
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
-            <button type="button" onClick={() => dispatch({ type: 'INFO_FETCH_START' })}>
-              Try again
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAnalysisSeconds((s) => Math.min(30, s + 6))
-                dispatch({ type: 'INFO_FETCH_START' })
-              }}
-              disabled={analysisSeconds >= 30}
-            >
-              Analyze longer (+6s)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAnalysisSeconds(18)
-                dispatch({ type: 'INFO_FETCH_START' })
-              }}
-              disabled={analysisSeconds === 18}
-            >
-              Reset analysis length
-            </button>
-          </div>
-        </section>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <div>
+                <div className="label">Key</div>
+                <div style={{ marginTop: 4 }}>
+                  {state.songInfo.keySignature
+                    ? `${state.songInfo.keySignature.name} · ${Math.round(
+                        state.songInfo.keySignature.confidence * 100,
+                      )}% confidence`
+                    : 'Unknown (no preview available / blocked by CORS)'}
+                </div>
+                {state.songInfo.keySignature?.candidates &&
+                  state.songInfo.keySignature.candidates.length > 1 && (
+                    <div className="hint" style={{ marginTop: 4 }}>
+                      Alternate guess: {state.songInfo.keySignature.candidates[1].name}
+                    </div>
+                  )}
+              </div>
+
+              <div>
+                <div className="label">Time signature</div>
+                <div style={{ marginTop: 4 }}>{state.songInfo.timeSignature ?? 'Unknown (MVP)'}</div>
+              </div>
+
+              <div>
+                <div className="label">Chord suggestion</div>
+                <div style={{ marginTop: 4 }}>{state.songInfo.chords.join(' → ')}</div>
+                <div className="hint" style={{ marginTop: 4 }}>
+                  (Next: diatonic chords from detected key)
+                </div>
+              </div>
+            </div>
+
+            <div className="row" style={{ marginTop: 14 }}>
+              <Button variant="secondary" type="button" onClick={() => dispatch({ type: 'INFO_FETCH_START' })}>
+                Try again
+              </Button>
+              <Button
+                variant="primary"
+                type="button"
+                onClick={() => {
+                  setAnalysisSeconds((s) => Math.min(30, s + 6))
+                  dispatch({ type: 'INFO_FETCH_START' })
+                }}
+                disabled={analysisSeconds >= 30}
+              >
+                Analyze longer (+6s)
+              </Button>
+              <Button
+                variant="ghost"
+                type="button"
+                onClick={() => {
+                  setAnalysisSeconds(18)
+                  dispatch({ type: 'INFO_FETCH_START' })
+                }}
+                disabled={analysisSeconds === 18}
+              >
+                Reset length
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
 
       {state.stage === 'error' && (
-        <section style={{ marginTop: 16 }}>
-          <h2 style={{ fontSize: 18 }}>Something went wrong</h2>
-          <p>{state.errorMessage ?? 'Unknown error'}</p>
-          <button type="button" onClick={() => dispatch({ type: 'RESET' })}>
-            Back
-          </button>
-        </section>
+        <div className="stack">
+          <Card title="Something went wrong" subtitle="You can go back and try again">
+            <p style={{ marginTop: 0 }}>{state.errorMessage ?? 'Unknown error'}</p>
+            <div className="row">
+              <Button variant="primary" type="button" onClick={() => dispatch({ type: 'RESET' })}>
+                Back
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
     </div>
   )
