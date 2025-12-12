@@ -80,8 +80,8 @@ Right now it just returns a message and an empty match list. The idea is to even
 
 ## Roadmap
 
-- Replace the placeholder recognition call with real audio capture + a recognition provider (Netlify Function)
-- Improve chord suggestions based on detected key
-- Add persistence (remember last song + results)
-- Add UI polish (mobile-first, better layout, loading indicators)
+- [ ] Replace the placeholder recognition call with real audio capture + a recognition provider (Netlify Function)
+- [x] Improve chord suggestions based on detected key
+- [x] Add persistence (remember last song + results)
+- [ ] Add UI polish (mobile-first, better layout, loading indicators)
 

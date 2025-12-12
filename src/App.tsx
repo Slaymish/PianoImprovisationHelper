@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import './App.css'
 
 import { useDebouncedValue } from './hooks/useDebouncedValue'
@@ -7,6 +7,7 @@ import { detectKeyFromAudioUrlWithCandidates, type KeyCandidate } from './servic
 import { lookupPreviewUrl } from './services/itunes'
 import { recognizeSong } from './services/recognition'
 import { suggestProgressionsForKey } from './services/chords'
+import { clearPersistedState, loadPersistedState, savePersistedState } from './services/persistence'
 
 import { Button } from './components/ui/Button'
 import { Card } from './components/ui/Card'
@@ -44,6 +45,7 @@ type AppAction =
   | { type: 'LISTEN_START' }
   | { type: 'LISTEN_STOP' }
   | { type: 'SONG_SELECTED'; song: Song }
+  | { type: 'HYDRATE'; song: Song; songInfo: SongInfo }
   | { type: 'INFO_FETCH_START' }
   | { type: 'INFO_FETCH_SUCCESS'; songInfo: SongInfo }
   | { type: 'INFO_FETCH_ERROR'; message: string }
@@ -69,6 +71,14 @@ function reducer(state: AppState, action: AppAction): AppState {
         songInfo: null,
         errorMessage: null,
         stage: 'fetchingInfo',
+      }
+    case 'HYDRATE':
+      return {
+        ...state,
+        stage: 'idle',
+        song: action.song,
+        songInfo: action.songInfo,
+        errorMessage: null,
       }
     case 'INFO_FETCH_START':
       return { ...state, stage: 'fetchingInfo', errorMessage: null }
@@ -163,10 +173,45 @@ function App() {
   const [analysisSeconds, setAnalysisSeconds] = useState(18)
   const [analysisProgress, setAnalysisProgress] = useState(0)
 
+  const restoredOnceRef = useRef(false)
+
   const [recognitionStatus, setRecognitionStatus] = useState<'idle' | 'calling' | 'done' | 'error'>(
     'idle',
   )
   const [recognitionMessage, setRecognitionMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (restoredOnceRef.current) return
+    restoredOnceRef.current = true
+
+    const restored = loadPersistedState()
+    if (!restored) return
+
+    // Restore small bits of UI state.
+    if (typeof restored.analysisSeconds === 'number') {
+      queueMicrotask(() => setAnalysisSeconds(restored.analysisSeconds))
+    }
+    if (typeof restored.lastQuery === 'string') {
+      const q = restored.lastQuery
+      queueMicrotask(() => setQuery(q))
+    }
+
+    // Restore last result, but keep the stage as idle so the user can choose what to do.
+    if (restored.song && restored.songInfo) {
+      dispatch({ type: 'HYDRATE', song: restored.song, songInfo: restored.songInfo })
+    }
+  }, [])
+
+  useEffect(() => {
+    // Persist when the user has a selected song or a result.
+    if (!restoredOnceRef.current) return
+    savePersistedState({
+      analysisSeconds,
+      song: state.song,
+      songInfo: state.songInfo,
+      lastQuery: query,
+    })
+  }, [analysisSeconds, state.song, state.songInfo, query])
 
   useEffect(() => {
     if (state.stage !== 'fetchingInfo' || !state.song) return
@@ -238,6 +283,38 @@ function App() {
       {state.stage === 'idle' && (
         <div className="stack">
           <Card title="Find a song" subtitle="Search by title and artist (MusicBrainz)">
+            {state.song && state.songInfo && (
+              <div className="recentRow">
+                <div className="hint">
+                  Last time: <strong>{state.song.title}</strong> — {state.song.artist}
+                </div>
+                <div className="row" style={{ justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    onClick={() => {
+                      // Jump to result view without re-analyzing.
+                      dispatch({ type: 'INFO_FETCH_SUCCESS', songInfo: state.songInfo! })
+                    }}
+                  >
+                    Show result
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    type="button"
+                    onClick={() => {
+                      clearPersistedState()
+                      dispatch({ type: 'RESET' })
+                      setQuery('')
+                      setPreviewStatus('idle')
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="row">
               <Button variant="primary" type="button" onClick={() => dispatch({ type: 'LISTEN_START' })}>
                 Listen for song
