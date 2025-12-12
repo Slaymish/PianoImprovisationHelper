@@ -6,6 +6,7 @@ import { searchTracks, type TrackSearchResult } from './services/musicbrainz'
 import { detectKeyFromAudioUrlWithCandidates, type KeyCandidate } from './services/keyDetection'
 import { lookupPreviewUrl } from './services/itunes'
 import { recognizeSong } from './services/recognition'
+import { suggestProgressionsForKey } from './services/chords'
 
 import { Button } from './components/ui/Button'
 import { Card } from './components/ui/Card'
@@ -123,10 +124,20 @@ async function fakeFetchSongInfo(song: Song, opts: SongInfoOpts): Promise<SongIn
     }
   }
 
+  let chords: string[] = []
+  if (keySignature) {
+    const [tonic, mode] = keySignature.name.split(' ') as [string, 'major' | 'minor']
+    const suggestions = suggestProgressionsForKey({ tonic, mode })
+    // Show a compact, friendly set of suggestions.
+    chords = [
+      ...suggestions.progressions.slice(0, 3).map((p) => `${p.roman}  (${p.chords.join(' – ')})`),
+    ]
+  }
+
   return {
     keySignature,
     timeSignature: null,
-    chords: ['I', 'V', 'vi', 'IV'],
+    chords,
   }
 }
 
@@ -456,11 +467,18 @@ function App() {
               </div>
 
               <div>
-                <div className="label">Chord suggestion</div>
-                <div style={{ marginTop: 4 }}>{state.songInfo.chords.join(' → ')}</div>
-                <div className="hint" style={{ marginTop: 4 }}>
-                  (Diatonic chords from the detected key are next.)
-                </div>
+                <div className="label">Chord ideas</div>
+                {state.songInfo.chords.length > 0 ? (
+                  <div className="stack" style={{ marginTop: 8, gap: 6 }}>
+                    {state.songInfo.chords.map((c) => (
+                      <div key={c}>{c}</div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="hint" style={{ marginTop: 4 }}>
+                    Detect a key first to get chord suggestions.
+                  </div>
+                )}
               </div>
             </div>
 
